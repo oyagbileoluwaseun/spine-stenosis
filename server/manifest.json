@@ -1,0 +1,13 @@
+{
+  "version": "v1.0-freeze",
+  "small3dnet_ckpt": "models/small3dnet.pt",
+  "resnet3d_ckpt": "models/resnet3d.pt",
+  "xgb_bundle": "models/xgb_bundle.joblib",
+  "meta_logreg": "models/meta_logreg.joblib",
+  "cutpoints": {
+    "none_mild": 0.35,
+    "mild_severe": 0.65
+  },
+  "resnet3d_best_thr": 0.6763836741447449,
+  "notes": "Frozen from successful CV run for API serving."
+}
