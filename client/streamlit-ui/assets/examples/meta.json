@@ -1,0 +1,5 @@
+{
+  "Example_1_sp00120_gradcam_hd.png": "sp00120 • Pred: Non-Severe (p=0.76) • GT: 0",
+  "Example_2_sp00068_gradcam_hd.png": "sp00068 • Pred: Severe (p=0.80) • GT: 1",
+  "Example_3_sp00020_gradcam_hd.png": "sp00020 • Pred: Severe (p=0.84) • GT: 1"
+}

@@ -1,0 +1,11 @@
+streamlit
+requests
+Pillow
+numpy
+reportlab
+agno
+google-genai
+duckduckgo-search
+plotly
+statsmodels
+matplotlib
