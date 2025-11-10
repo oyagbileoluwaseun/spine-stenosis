@@ -5,8 +5,8 @@ import requests
 import streamlit as st
 from PIL import Image
 
-st.set_page_config(page_title="Explainability Examples", page_icon="🧠", layout="wide")
-st.title("🧠 Explainability Examples (Grad-CAM gallery)")
+st.set_page_config(page_title="Explainability (Grad-CAM gallery)", page_icon="🧠", layout="wide")
+st.title("🧠 Explainability : Lumbar & Cervical MRI ")
 
 def load_gallery():
     base_url = st.secrets.get("EXAMPLES_BASE_URL", "").rstrip("/")
@@ -26,7 +26,7 @@ def load_gallery():
     items = []
     for p in sorted(base.glob("*.png")):
         items.append({"title": meta.get(p.name, p.stem), "path": str(p)})
-    return items, "Loaded local assets/examples"
+    return items, "Loaded local assets"
 
 items, src = load_gallery()
 st.caption(src)

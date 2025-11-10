@@ -8,7 +8,7 @@ import numpy as np
 st.set_page_config(page_title="Model Performance", page_icon="📊", layout="wide")
 st.title("📊 Model Performance")
 
-# -------- Load metrics.json (secrets URL -> local assets -> upload) --------
+# -------- Load metrics.json --------
 def load_metrics():
     url = st.secrets.get("METRICS_URL", "")
     if url:
@@ -20,28 +20,19 @@ def load_metrics():
 
     local = Path(__file__).resolve().parents[1] / "assets" / "metrics.json"
     if local.exists():
-        return json.loads(local.read_text()), "Loaded metrics from assets/metrics.json"
+        return json.loads(local.read_text()), "Loaded metrics from model assest"
 
     return None, "No metrics source found."
 
 metrics, src = load_metrics()
 st.caption(src)
 
-uploaded = st.file_uploader("Upload metrics.json to override (optional)", type=["json"])
-if uploaded:
-    try:
-        metrics = json.loads(uploaded.read().decode("utf-8"))
-        st.success("Using uploaded metrics.json")
-    except Exception as e:
-        st.error(f"Invalid JSON: {e}")
+
+
 
 if not metrics:
     st.info("Provide metrics via secrets(METRICS_URL), assets/metrics.json, or upload.")
     st.stop()
-
-# Expected schema (segmentation-like):
-# mean: { dice, sds_1mm, assd_mm, hd95_mm, prec, recall }
-# results: [ { id, dice, sds_1mm, assd_mm, hd95_mm, vol_pred_ml, vol_gt_ml, ... }, ... ]
 
 mean = metrics.get("mean", {})
 res  = pd.DataFrame(metrics.get("results", []))
@@ -102,7 +93,8 @@ names = [
     "fig_heatmap_slice_dice.png",
     "fig_scatter_volumes.png",
     "fig_ecdf_dice_sds.png",
-    "fig_bland_altman_vol.png"
+    "fig_bland_altman_vol.png",
+    "fig_binlabel_pr_logreg_vs_xgb.png",
 ]
 cols = st.columns(2); shown = 0
 for i, name in enumerate(names):

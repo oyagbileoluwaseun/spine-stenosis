@@ -3,9 +3,19 @@ requests
 Pillow
 numpy
 reportlab
-agno
-google-genai
-duckduckgo-search
+pydantic
+matplotlib
 plotly
 statsmodels
-matplotlib
+scipy
+protobuf<5
+
+# LLM + search
+google-genai
+google-generativeai==0.8.3
+agno         
+duckduckgo-search
+ddgs
+
+tenacity==9.0.0
+opencv-python-headless
