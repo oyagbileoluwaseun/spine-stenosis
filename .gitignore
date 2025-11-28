@@ -7,7 +7,7 @@ client/streamlit-ui/venv/
 __pycache__/
 *.pyc
 
-# Streamlit secrets
+# Streamlit secrets (do NOT commit API keys)
 .streamlit/secrets.toml
 client/streamlit-ui/.streamlit/secrets.toml
 

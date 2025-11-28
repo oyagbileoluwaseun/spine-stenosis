@@ -1,0 +1,39 @@
+{
+  "app_name": "Spine Stenosis Assistant",
+  "description": "Research / education UI for analysing spine MRI scans (stenosis risk) with Grad-CAM and explainability.",
+  "faq": [
+    {
+      "question": "What does this app do?",
+      "answer": "It is a research and education tool that analyses spine MRI scans and predicts the likelihood of spinal canal narrowing (stenosis) as none / mild / severe. It also displays Grad-CAM overlays and, when available, additional explainability metrics."
+    },
+    {
+      "question": "Is this a diagnostic or medical device?",
+      "answer": "No. This UI and the underlying models are experimental and are not approved for clinical use. All outputs are model predictions only and must be interpreted by a qualified clinician."
+    },
+    {
+      "question": "Which scan formats are supported?",
+      "answer": "The UI expects 3D MRI scans of the spine in NIfTI (.nii, .nii.gz) or NumPy (.npz) format. These are typically exported from a PACS or research dataset."
+    },
+    {
+      "question": "What do the probabilities mean?",
+      "answer": "The probabilities represent the model's confidence for each severity class (none, mild, severe). They are not guarantees or risk scores and must be interpreted together with image quality, symptoms and clinical judgement."
+    },
+    {
+      "question": "What is Grad-CAM in this context?",
+      "answer": "Grad-CAM is a visualization that highlights regions of the scan that most influenced the model's decision. It is intended to support transparency and discussion, not replace a full image review."
+    },
+    {
+      "question": "Is my scan stored permanently?",
+      "answer": "In this demo UI, scans are used for inference during the current interaction. Any long term storage, logging or audit depends on how the backend API is configured and deployed in your environment."
+    }
+  ],
+  "fallback": {
+    "no_llm_available": "I cannot reach the language model backend at the moment, so I will share the built-in FAQ instead. I can only answer questions about how to use this research UI. For any personal medical questions, please contact a qualified clinician.",
+    "medical_disclaimer": "I can help with questions about how to use this research UI, but I cannot provide medical advice, diagnose conditions or recommend treatments. For those topics, please talk to a qualified clinician."
+  },
+  "fallback_sections": {
+    "clinician": "Model-assessed spinal canal stenosis severity, with class probabilities and Grad-CAM visualization. Use these outputs as adjunct information alongside full imaging review and clinical examination.",
+    "patient": "This tool provides an early indication of whether your spinal canal might look narrowed on the scan. The result is not a diagnosis. Only your clinician can explain what it means for you personally.",
+    "caveats": "Experimental research tool only; not cleared for clinical use. Sensitive to image quality, acquisition protocol and anatomy. All results must be reviewed by a qualified specialist."
+  }
+}

@@ -303,9 +303,7 @@ def _make_case_pdf(meta: dict, probs: dict, cutpoint: float, severity: str,
     c.showPage(); c.save(); return buf.getvalue()
 
 # ---------------- UI ----------------
-# <<<<<< SPECIFIED FIX: change Streamlit app title + icon >>>>>>
 st.set_page_config(page_title="Spinal Stenosis", page_icon="🩺", layout="wide")
-# <<<<<< END FIX >>>>>>
 
 # ====== HEADER SECTION (from uploaded design) ======
 st.markdown("""
@@ -343,7 +341,7 @@ st.markdown("""
     <div style="line-height:1.55; font-size:14.5px; color:#d9e3f0;">
       This project combines medical-imaging AI with agent assistant for the 
       <strong>early detection and triage</strong> of cervical and lumbar spinal disorders. 
-      Vision models analyze scans while an agent explains results in plain language, 
+      Vision models analyse scans while an agent explains results in plain language, 
       supporting safe, patient-friendly communication and diagnostic interpretation.
     </div>
   </div>
@@ -364,6 +362,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 # ====== END HEADER ======
 
+# ----- Sidebar -----
 with st.sidebar:
     st.markdown("### Settings")
     st.text_input("API Base (read-only)", API_BASE, disabled=True)
@@ -374,208 +373,282 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-st.title("Upload Scan")
-st.caption("Accepted: **NIfTI (.nii/.nii.gz) or NPZ**")
+# ----- Session state initialisation -----
+if "history" not in st.session_state:
+    # simple list of dicts: one per run
+    st.session_state["history"] = []
 
-patient_default = f"case-{int(datetime.datetime.now(datetime.UTC).timestamp())}"
-uploaded = st.file_uploader("Drag a scan here …", type=["nii","nii.gz","npz"], label_visibility="collapsed")
-patient_id = st.text_input("Patient ID", value=patient_default)
+if "__shap_available__" not in st.session_state:
+    st.session_state["__shap_available__"] = False
 
-overlay_img: Optional[Image.Image] = None
-overlay_png_bytes: Optional[bytes] = None
-out = None
+# ----- Tabs: current scan + history -----
+tab_current, tab_history = st.tabs(
+    ["📥 Current Scan", "📚 Session History"]
+)
 
-col_btn, _ = st.columns([0.25, 0.75])
-with col_btn:
-    run_clicked = st.button("Run Inference", type="primary", disabled=not uploaded)
+# =========================================================
+# TAB 1 – CURRENT SCAN
+# =========================================================
+with tab_current:
+    st.title("Upload Scan")
+    st.caption("Accepted: **NIfTI (.nii/.nii.gz) or NPZ**")
 
-if run_clicked and uploaded:
-    with st.spinner("Running inference…"):
-        try:
-            out = post_infer(uploaded.name, uploaded.getvalue(), patient_id)
-            st.session_state["last_out"] = out
-        except Exception as e:
-            st.error(f"Backend returned an error:\n\n{e}")
-            out = None
+    patient_default = f"case-{int(datetime.datetime.now(datetime.UTC).timestamp())}"
+    uploaded = st.file_uploader("Drag a scan here …", type=["nii","nii.gz","npz"],
+                                label_visibility="collapsed")
+    patient_id = st.text_input("Patient ID", value=patient_default)
 
-if out is None and "last_out" in st.session_state:
-    out = st.session_state["last_out"]
+    overlay_img: Optional[Image.Image] = None
+    overlay_png_bytes: Optional[bytes] = None
+    out = None
 
-st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+    col_btn, _ = st.columns([0.25, 0.75])
+    with col_btn:
+        run_clicked = st.button("Run Inference", type="primary", disabled=not uploaded)
 
-if out:
-    colL, colR = st.columns([0.56, 0.44], gap="large")
-    with colL:
-        st.subheader("Grad-CAM overlay")
-        b64 = out.get("evidence", {}).get("gradcam_resnet3d_png")
-        if b64:
-            overlay_png_bytes = base64.b64decode(b64)
-            overlay_img = Image.open(io.BytesIO(overlay_png_bytes)).convert("RGB")
-            st.image(overlay_img, caption="Grad-CAM overlay", width='stretch')
-        else:
-            st.info("No overlay returned.")
-
-        st.success("Analysis completed")
-        st.markdown("#### Additional visualizations")
-        if overlay_png_bytes:
+    if run_clicked and uploaded:
+        with st.spinner("Running inference…"):
             try:
-                fig_h, ax_h = plt.subplots(figsize=(5.5, 3.2), dpi=150)
-                cam = np.asarray(overlay_img.convert("L"))
-                ax_h.imshow(cam, cmap="hot"); ax_h.axis("off")
-                ax_h.set_title("Grad-CAM heatmap", fontsize=11)
-                st.pyplot(fig_h, clear_figure=True)
-            except Exception:
-                st.caption("Could not render heatmap.")
-        try:
-            probs_local = out.get("probabilities", {})
-            labels = ["none", "mild", "severe"]
-            vals = [float(probs_local.get(k, 0.0)) for k in labels]
-            fig_p, ax_p = plt.subplots(figsize=(5.5, 2.6), dpi=150)
-            ax_p.bar(labels, vals); ax_p.set_ylim(0, 1); ax_p.set_ylabel("Probability")
-            ax_p.set_title("Severity probabilities", fontsize=11)
-            for i, v in enumerate(vals):
-                ax_p.text(i, v + 0.02, f"{v:.2f}", ha="center", va="bottom", fontsize=9)
-            st.pyplot(fig_p, clear_figure=True)
-        except Exception:
-            st.caption("Could not render probability chart.")
-        shap_info = (out.get("explain", {}) or {}).get("shap")
-        st.session_state["__shap_available__"] = bool(
-            shap_info and isinstance(shap_info, dict)
-            and (shap_info.get("feature_names") and shap_info.get("values"))
-        )
-        if st.session_state["__shap_available__"]:
-            try:
-                feat_names = shap_info.get("feature_names") or []
-                shap_vals  = shap_info.get("values") or []
-                if feat_names and shap_vals and len(feat_names) == len(shap_vals):
-                    idx = np.argsort(np.abs(shap_vals))[-8:][::-1]
-                    names = [feat_names[i] for i in idx]
-                    vals  = [shap_vals[i] for i in idx]
-                    colors = ["#1f77b4" if v >= 0 else "#d62728" for v in vals]
-                    fig_s, ax_s = plt.subplots(figsize=(6, 3.2), dpi=150)
-                    ax_s.barh(names[::-1], vals[::-1], color=colors[::-1])
-                    ax_s.set_title("SHAP local explanation (top drivers)", fontsize=11)
-                    ax_s.set_xlabel("Contribution to severity")
-                    st.pyplot(fig_s, clear_figure=True)
-                else:
-                    st.caption("SHAP data present but not in expected format.")
-            except Exception:
-                st.caption("Could not render SHAP chart.")
+                out = post_infer(uploaded.name, uploaded.getvalue(), patient_id)
+                st.session_state["last_out"] = out
 
-    with colR:
-        st.subheader("Prediction")
-        probs = out.get("probabilities", {})
-        cutp  = out.get("meta", {}).get("cutpoints", {}).get("mild_severe", 0.65)
-        sev   = out.get("severity", "unknown")
-        st.markdown(
-            f"""
-            <div style="padding:.8rem;border:1px solid #555;border-radius:8px">
-            <div><h3>Predicted severity: {sev.upper()}</h3></div>
-            <div><b>Cut-point:</b> {cutp:.2f}</div>
-            <div><b>Probabilities:</b></div>
-            <ul style="margin-top:.2rem">
-              <li>none: {probs.get('none',0):.3f}</li>
-              <li>mild: {probs.get('mild',0):.3f}</li>
-              <li>severe: {probs.get('severe',0):.3f}</li>
-            </ul>
-            </div>
-            """, unsafe_allow_html=True
-        )
-        with st.expander("Raw response (JSON)"):
-            st.json(out, expanded=False)
+                # ---- append to in-session history (summary only) ----
+                probs_hist = out.get("probabilities", {}) or {}
+                entry = {
+                    "timestamp": _now_utc(),
+                    "patient_id": patient_id,
+                    "case_id": out.get("case_id", patient_id),
+                    "severity": out.get("severity", "unknown"),
+                    "none": float(probs_hist.get("none", 0.0)),
+                    "mild": float(probs_hist.get("mild", 0.0)),
+                    "severe": float(probs_hist.get("severe", 0.0)),
+                }
+                st.session_state["history"].append(entry)
+                # keep only last 20 so memory doesn't blow up
+                st.session_state["history"] = st.session_state["history"][-20:]
 
-        sections = _fallback_sections({"severity": sev, **probs})
-        with st.expander("Clinician-style summary", expanded=False):
-            st.markdown(sections["clinician"])
-        with st.expander("Patient-friendly explanation", expanded=False):
-            st.markdown(sections["patient"])
-        with st.expander("Caveats & next steps", expanded=False):
-            st.markdown(sections["caveats"])
+            except Exception as e:
+                st.error(f"Backend returned an error:\n\n{e}")
+                out = None
 
-        st.subheader("🔎 Auto-references (trusted medical sources)")
-        refs = _fetch_refs(f"{sev} spinal stenosis management", n=3)
-        for r in refs:
-            st.markdown(f"- [{r['title']}]({r['href']})")
+    if out is None and "last_out" in st.session_state:
+        out = st.session_state["last_out"]
 
-        # Radar chart when SHAP not available
-        if not st.session_state.get("__shap_available__", False):
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+    if out:
+        colL, colR = st.columns([0.56, 0.44], gap="large")
+
+        # ---------- LEFT: evidence & plots ----------
+        with colL:
+            st.subheader("Grad-CAM overlay")
+            b64 = out.get("evidence", {}).get("gradcam_resnet3d_png")
+            if b64:
+                overlay_png_bytes = base64.b64decode(b64)
+                overlay_img = Image.open(io.BytesIO(overlay_png_bytes)).convert("RGB")
+                st.image(overlay_img, caption="Grad-CAM overlay", use_container_width=True)
+            else:
+                st.info("No overlay returned.")
+
+            st.success("Analysis completed")
+            st.markdown("#### Additional visualizations")
+
+            # Heatmap
+            if overlay_png_bytes:
+                try:
+                    fig_h, ax_h = plt.subplots(figsize=(5.5, 3.2), dpi=150)
+                    cam = np.asarray(overlay_img.convert("L"))
+                    ax_h.imshow(cam, cmap="hot")
+                    ax_h.axis("off")
+                    ax_h.set_title("Grad-CAM heatmap", fontsize=11)
+                    st.pyplot(fig_h, clear_figure=True)
+                except Exception:
+                    st.caption("Could not render heatmap.")
+
+            # Probability bar chart
             try:
                 probs_local = out.get("probabilities", {})
                 labels = ["none", "mild", "severe"]
                 vals = [float(probs_local.get(k, 0.0)) for k in labels]
-                categories = labels
-                N = len(categories)
-                angles = np.linspace(0, 2*np.pi, N, endpoint=False).tolist()
-                vals_cycle = vals + vals[:1]
-                angles_cycle = angles + angles[:1]
-                fig_r = plt.figure(figsize=(5.8, 4.0), dpi=150)
-                ax_r = plt.subplot(111, polar=True)
-                ax_r.set_theta_offset(np.pi / 2); ax_r.set_theta_direction(-1)
-                ax_r.set_thetagrids(np.degrees(angles), categories)
-                ax_r.set_ylim(0, 1.0)
-                ax_r.plot(angles_cycle, vals_cycle, linewidth=2)
-                ax_r.fill(angles_cycle, vals_cycle, alpha=0.25)
-                ax_r.set_title("Radar view of class probabilities", fontsize=11, pad=12)
-                for ang, v, label in zip(angles, vals, categories):
-                    ax_r.text(ang, v + 0.08, f"{v:.2f}", ha='center', va='center', fontsize=9)
-                st.pyplot(fig_r, clear_figure=True)
+                fig_p, ax_p = plt.subplots(figsize=(5.5, 2.6), dpi=150)
+                ax_p.bar(labels, vals)
+                ax_p.set_ylim(0, 1)
+                ax_p.set_ylabel("Probability")
+                ax_p.set_title("Severity probabilities", fontsize=11)
+                for i, v in enumerate(vals):
+                    ax_p.text(i, v + 0.02, f"{v:.2f}", ha="center", va="bottom", fontsize=9)
+                st.pyplot(fig_p, clear_figure=True)
             except Exception:
-                st.caption("Could not render radar chart.")
+                st.caption("Could not render probability chart.")
 
-    st.divider()
-    meta = {"case_id": out.get("case_id", patient_id)}
-    pdf_bytes = _make_case_pdf(meta, probs, cutp, sev,
-                               sections.get("clinician"),
-                               sections.get("patient"),
-                               sections.get("caveats"),
-                               overlay_png_bytes)
-    st.download_button("Download Case Report (PDF)", data=pdf_bytes,
-                       file_name=f"{patient_id}_case_report.pdf", mime="application/pdf")
+            # SHAP chart (if available)
+            shap_info = (out.get("explain", {}) or {}).get("shap")
+            st.session_state["__shap_available__"] = bool(
+                shap_info and isinstance(shap_info, dict)
+                and (shap_info.get("feature_names") and shap_info.get("values"))
+            )
+            if st.session_state["__shap_available__"]:
+                try:
+                    feat_names = shap_info.get("feature_names") or []
+                    shap_vals = shap_info.get("values") or []
+                    if feat_names and shap_vals and len(feat_names) == len(shap_vals):
+                        idx = np.argsort(np.abs(shap_vals))[-8:][::-1]
+                        names = [feat_names[i] for i in idx]
+                        vals = [shap_vals[i] for i in idx]
+                        colors = ["#1f77b4" if v >= 0 else "#d62728" for v in vals]
+                        fig_s, ax_s = plt.subplots(figsize=(6, 3.2), dpi=150)
+                        ax_s.barh(names[::-1], vals[::-1], color=colors[::-1])
+                        ax_s.set_title("SHAP local explanation (top drivers)", fontsize=11)
+                        ax_s.set_xlabel("Contribution to severity")
+                        st.pyplot(fig_s, clear_figure=True)
+                    else:
+                        st.caption("SHAP data present but not in expected format.")
+                except Exception:
+                    st.caption("Could not render SHAP chart.")
 
-# -------- Optional: Image Quality & Modality Check --------
-st.divider()
-st.header("Optional: Image Quality & Modality Check (Non MRI – UI)")
+        # ---------- RIGHT: prediction + narratives ----------
+        with colR:
+            st.subheader("Prediction")
+            probs = out.get("probabilities", {})
+            cutp = out.get("meta", {}).get("cutpoints", {}).get("mild_severe", 0.65)
+            sev = out.get("severity", "unknown")
 
-qa_img = st.file_uploader(
-    "Upload a JPG/PNG screenshot (NOT used for prediction). Assistant warns if non-spine.",
-    type=["jpg","jpeg","png"], key="qa_png"
-)
+            st.markdown(
+                f"""
+                <div style="padding:.8rem;border:1px solid #555;border-radius:8px;
+                            background:linear-gradient(145deg,#10141c,#151925);">
+                  <div style="font-size:1.1rem;margin-bottom:.35rem;">
+                    <b>Predicted severity:</b> <span style="font-size:1.15rem;">{sev.upper()}</span>
+                  </div>
+                  <div><b>Cut-point:</b> {cutp:.2f}</div>
+                  <div style="margin-top:.4rem;"><b>Probabilities:</b></div>
+                  <ul style="margin-top:.2rem">
+                    <li>none: {probs.get('none',0):.3f}</li>
+                    <li>mild: {probs.get('mild',0):.3f}</li>
+                    <li>severe: {probs.get('severe',0):.3f}</li>
+                  </ul>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
-if qa_img:
-    im = Image.open(io.BytesIO(qa_img.getvalue())).convert("RGB")
-    col1, col2 = st.columns([0.55, 0.45])
-    with col1:
-        st.image(im, caption="Uploaded screenshot", width='stretch')
-        st.caption("Uploaded screenshot")
-    with col2:
-        st.markdown("**Local checks:**")
-        st.code(json.dumps(_contrast_and_blur_metrics(im), indent=2), language="json")
+            with st.expander("Raw response (JSON)"):
+                st.json(out, expanded=False)
 
-        with st.container(border=True):
-            st.markdown("**Medical Image Assistant**")
-            result = run_llm_qa(im)
-            rowA, rowB = st.columns([0.55, 0.45])
-            with rowA:
-                st.markdown(
-                    f"<div style='display:inline-block;padding:.25rem .5rem;border-radius:999px;"
-                    f"border:1px solid #666;margin-right:.35rem;font-size:.85rem;'>"
-                    f"Provider: <b>{result['provider']}</b></div>",
-                    unsafe_allow_html=True
-                )
-            with rowB:
-                pill = "background:#0c5132;color:#fff" if result["ok"] else "background:#5c3d00;color:#fff"
-                label = "OK" if result["ok"] else "FALLBACK"
-                st.markdown(
-                    f"<div style='float:right;padding:.25rem .5rem;border-radius:999px;{pill};"
-                    f"font-size:.85rem'>{label}</div>", unsafe_allow_html=True
-                )
-            st.markdown("<div style='height:.35rem'></div>", unsafe_allow_html=True)
-            st.write(result["text"])
-            if not result["ok"] and result.get("error"):
-                st.caption(f"Note: {result['error']}")
+            sections = _fallback_sections({"severity": sev, **probs})
 
-        st.markdown("<div style='height:.5rem'></div>", unsafe_allow_html=True)
-        st.subheader("Trusted references")
-        refs2 = _fetch_refs("spine MRI image quality artifacts motion protocol", n=3)
-        for r in refs2:
-            st.markdown(f"- [{r['title']}]({r['href']})")
+            with st.expander("Clinician-style summary", expanded=False):
+                st.markdown(sections["clinician"])
+            with st.expander("Patient-friendly explanation", expanded=False):
+                st.markdown(sections["patient"])
+            with st.expander("Caveats & next steps", expanded=False):
+                st.markdown(sections["caveats"])
+
+            st.subheader("🔎 Auto-references (trusted medical sources)")
+            refs = _fetch_refs(f"{sev} spinal stenosis management", n=3)
+            for r in refs:
+                st.markdown(f"- [{r['title']}]({r['href']})")
+
+            # Radar chart when SHAP not available
+            if not st.session_state.get("__shap_available__", False):
+                try:
+                    probs_local = out.get("probabilities", {})
+                    labels = ["none", "mild", "severe"]
+                    vals = [float(probs_local.get(k, 0.0)) for k in labels]
+                    categories = labels
+                    N = len(categories)
+                    angles = np.linspace(0, 2 * np.pi, N, endpoint=False).tolist()
+                    vals_cycle = vals + vals[:1]
+                    angles_cycle = angles + angles[:1]
+                    fig_r = plt.figure(figsize=(5.8, 4.0), dpi=150)
+                    ax_r = plt.subplot(111, polar=True)
+                    ax_r.set_theta_offset(np.pi / 2)
+                    ax_r.set_theta_direction(-1)
+                    ax_r.set_thetagrids(np.degrees(angles), categories)
+                    ax_r.set_ylim(0, 1.0)
+                    ax_r.plot(angles_cycle, vals_cycle, linewidth=2)
+                    ax_r.fill(angles_cycle, vals_cycle, alpha=0.25)
+                    ax_r.set_title("Radar view of class probabilities", fontsize=11, pad=12)
+                    for ang, v, label in zip(angles, vals, categories):
+                        ax_r.text(ang, v + 0.08, f"{v:.2f}", ha="center",
+                                  va="center", fontsize=9)
+                    st.pyplot(fig_r, clear_figure=True)
+                except Exception:
+                    st.caption("Could not render radar chart.")
+
+        st.divider()
+        meta = {"case_id": out.get("case_id", patient_id)}
+        pdf_bytes = _make_case_pdf(
+            meta,
+            probs,
+            cutp,
+            sev,
+            sections.get("clinician"),
+            sections.get("patient"),
+            sections.get("caveats"),
+            overlay_png_bytes,
+        )
+        st.download_button(
+            "Download Case Report (PDF)",
+            data=pdf_bytes,
+            file_name=f"{patient_id}_case_report.pdf",
+            mime="application/pdf",
+        )
+
+# =========================================================
+# TAB 2 – SESSION HISTORY (NEW, NON-BREAKING FEATURE)
+# =========================================================
+with tab_history:
+    st.subheader("Previous scans (this browser session)")
+
+    history = st.session_state.get("history", [])
+
+    if not history:
+        st.info("No scans have been analysed yet in this session.")
+    else:
+        # show compact table
+        st.markdown("#### Summary table")
+        # only show key fields
+        table_rows = [
+            {
+                "timestamp": h["timestamp"],
+                "patient_id": h["patient_id"],
+                "severity": h["severity"],
+                "none": round(h["none"], 3),
+                "mild": round(h["mild"], 3),
+                "severe": round(h["severe"], 3),
+            }
+            for h in history
+        ]
+        st.table(table_rows)
+
+        # allow user to pick one entry to highlight
+        st.markdown("#### Inspect a specific run")
+        options = list(range(len(history)))[::-1]  # newest first
+
+        def _fmt(idx: int) -> str:
+            h = history[idx]
+            return f"{h['timestamp']} – {h['patient_id']} – {h['severity'].upper()}"
+
+        selected_idx = st.selectbox(
+            "Select a scan:",
+            options,
+            format_func=_fmt,
+        )
+        selected = history[selected_idx]
+
+        st.markdown(
+            f"""
+            **Selected run**
+
+            - 🕒 Time: `{selected['timestamp']}`
+            - 🧾 Patient / Case ID: `{selected['patient_id']}`
+            - 🔎 Severity: **{selected['severity'].upper()}**
+            - Probabilities → none: `{selected['none']:.3f}`, mild: `{selected['mild']:.3f}`, severe: `{selected['severe']:.3f}`
+            """
+        )
+
+        st.caption(
+            "Note: history stores only summary statistics per run. "
+            "Full Grad-CAM and JSON are shown for the most recent scan in the **Current Scan** tab."
+        )
