@@ -13,3 +13,5 @@ client/streamlit-ui/.streamlit/secrets.toml
 
 # Build/deploy artefacts
 *.zip
+.streamlit/secrets.toml
+client/streamlit-ui/.streamlit/secrets.toml
