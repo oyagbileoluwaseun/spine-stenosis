@@ -19,3 +19,5 @@ ddgs
 
 tenacity==9.0.0
 opencv-python-headless
+streamlit-mic-recorder
+
