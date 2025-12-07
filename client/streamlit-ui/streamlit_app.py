@@ -325,7 +325,7 @@ st.markdown("""
     -webkit-background-clip: text; 
     background-clip: text; 
     color: transparent;">
-    AI-Driven Early Detection and Triage of Cervical & Lumbar Spinal Disorders with Chatbot
+    AI-Driven Early Detection and Triage of Cervical & Lumbar Spinal Disorders with Conversational Chatbot
   </h1>
   <div style="margin: 6px 0 14px; font-size: 14.5px; opacity: .95;">
     <strong>Author:</strong> Oluwaseun Victor Oyagbile &nbsp;·&nbsp; 
