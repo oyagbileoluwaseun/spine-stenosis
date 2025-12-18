@@ -1,4 +1,4 @@
-# AI-Driven Early Detection and Triage of Cervical and Lumbar Spinal Disorders with Chatbot
+# AI-Driven Early Detection and Triage of Cervical and Lumbar Spinal Disorders with Conversational Chatbot
 
 **Author:** Oluwaseun Victor Oyagbile  
 **Affiliation:** Computer Science — York St John University, London Campus  
