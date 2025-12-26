@@ -15,4 +15,4 @@ This project integrates medical imaging AI with a voice-enabled clinical assista
 - 🗣️ **Enable natural, voice-based interactions** for patients and clinicians  
 - 🔗 **Combine multimodal learning** (text, image, audio) for holistic triage
 
-**Keywords:** Spinal Stenosis, Medical Imaging, Explainable AI, Clinical Triage
+**Keywords:** Spinal Stenosis, Medical Imaging, Explainable AI, Clinical Triage, Chatbot
